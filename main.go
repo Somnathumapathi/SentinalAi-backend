@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 
+	"sentinal/controller"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +17,8 @@ func main() {
 			"message": "pong",
 		})
 	})
+	r.POST("/trace", controller.TraceHandler)
+	r.POST("/webhook/github", controller.GitHubIWebhook)
 
 	r.Run(":8080")
 }
