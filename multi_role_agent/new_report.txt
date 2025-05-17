@@ -1,0 +1,19 @@
+Changes made to the infrastructure graph:
+
+1. **NAT Gateway**: Added a NAT Gateway node to secure internet access within the VPC, addressing the recommendation to implement NAT gateways for security.
+
+2. **S3 Bucket**: Updated the S3 Bucket node to enable logging and versioning, following the recommendation to enhance security and data integrity.
+
+3. **EC2 Instance**: Enabled Amazon Inspector on the EC2 Instance node to ensure the AMI is up-to-date and secure, as per the recommendation for continuous vulnerability scanning.
+
+Nodes and connections left unchanged:
+
+- **AWSProvider**: The region configuration remains unchanged as it was already correctly set.
+- **VPC**: CIDR block size remains unchanged as it was optimized.
+- **Subnet**: No changes made to the subnet as it was correctly configured.
+- **Internet Gateway**: Existing configuration remains unchanged.
+- **Route Table**: No changes made as it was correctly configured.
+- **Security Group**: Configuration remains unchanged as it was correctly set.
+- **IAM Policy, Role, Role Policy Attachment, Instance Profile**: No changes made as they were correctly configured.
+
+Overall, the changes enhance security and compliance while maintaining necessary connections and nodes that were already correctly configured.

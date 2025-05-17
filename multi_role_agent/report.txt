@@ -1,0 +1,89 @@
+AWS Architecture Security Analysis Report
+
+Nodes:
+
+1. AWSProvider (Region: us-east-1)
+   - Vulnerability: Ensure that the region is configured correctly to avoid data compliance issues.
+   - Recommendation: Regularly review region settings and compliance requirements.
+
+2. VPC (CIDR: 10.10.0.0/16)
+   - Vulnerability: Large CIDR blocks can lead to inefficient IP address usage.
+   - Recommendation: Optimize CIDR block size based on actual needs.
+
+3. Subnet (CIDR: 10.10.1.0/24, Zone: us-east-1a)
+   - Vulnerability: Ensure subnet is properly configured to avoid exposure.
+   - Recommendation: Use private subnets for sensitive resources.
+
+4. InternetGateway (Name: app-igw)
+   - Vulnerability: Direct internet access can expose resources.
+   - Recommendation: Implement NAT gateways for secure internet access.
+
+5. RouteTable (Name: app-public-rt)
+   - Vulnerability: Misconfigured routes can lead to security breaches.
+   - Recommendation: Regularly audit route configurations.
+
+6. SecurityGroup (Name: app-instance-sg)
+   - Vulnerability: Allowing SSH and web access can be risky.
+   - Recommendation: Restrict access to specific IPs and use VPNs.
+
+7. S3Bucket (Name: my-unique-app-data-bucket-example-12345)
+   - Vulnerability: Ensure ACL is set to private to prevent unauthorized access.
+   - Recommendation: Enable logging and versioning for audit trails.
+
+8. IAMPolicy (Name: S3ReadWritePolicyForAppInstance)
+   - Vulnerability: Overly permissive policies can lead to data leaks.
+   - Recommendation: Use least privilege principle for IAM policies.
+
+9. IAMRole (Name: AppInstanceRole)
+   - Vulnerability: Trust relationships can be exploited.
+   - Recommendation: Regularly review and update trust policies.
+
+10. IAMRolePolicyAttachment
+    - Vulnerability: Ensure policies are correctly attached to roles.
+    - Recommendation: Audit policy attachments regularly.
+
+11. IAMInstanceProfile (Name: AppInstanceProfile)
+    - Vulnerability: Misconfigured profiles can lead to unauthorized access.
+    - Recommendation: Use Amazon Inspector to scan for vulnerabilities.
+
+12. EC2Instance (AMI: ami-053b0d53c279c366f, Type: t2.micro)
+    - Vulnerability: Ensure AMI is up-to-date and secure.
+    - Recommendation: Enable Amazon Inspector EC2 scanning.
+
+Connections:
+
+- AWSProvider --> VPC
+  - Vulnerability: Ensure secure connection between provider and VPC.
+  - Recommendation: Use AWS PrivateLink for secure connections.
+
+- VPC --> Subnet
+  - Vulnerability: Ensure subnet configurations are secure.
+  - Recommendation: Regularly audit subnet settings.
+
+- VPC --> InternetGateway
+  - Vulnerability: Direct internet access can expose resources.
+  - Recommendation: Implement security measures like firewalls.
+
+- Subnet --> EC2Instance
+  - Vulnerability: Ensure EC2 instances are not exposed.
+  - Recommendation: Use security groups to restrict access.
+
+- SecurityGroup --> EC2Instance
+  - Vulnerability: Ensure security group rules are not overly permissive.
+  - Recommendation: Regularly review and update security group rules.
+
+- IAMInstanceProfile --> EC2Instance
+  - Vulnerability: Ensure instance profiles are correctly configured.
+  - Recommendation: Use Amazon Inspector for vulnerability scanning.
+
+- S3Bucket --> IAMPolicy
+  - Vulnerability: Ensure policies are not overly permissive.
+  - Recommendation: Implement least privilege principle.
+
+General Recommendations:
+
+- Enable Amazon GuardDuty and Amazon Inspector for continuous monitoring and vulnerability assessment.
+- Regularly review IAM roles and policies to ensure they adhere to the least privilege principle.
+- Implement logging and monitoring for all resources to detect and respond to security incidents promptly.
+
+This report provides a comprehensive analysis of the AWS architecture, highlighting potential vulnerabilities and offering recommendations for mitigation. Regular audits and adherence to best practices are essential for maintaining a secure cloud environment.

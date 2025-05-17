@@ -1,0 +1,37 @@
+%%{init: { 'themeVariables': { 'edgeLabelBackground':'#ffffff', 'hoverBackground':'#f0f0f0' }}}%%
+graph TD
+    AWSProvider["AWS Provider\nRegion: us-east-1"]
+    VPC["VPC\nCIDR: 10.10.0.0/16\nName: app-network-vpc"]
+    Subnet["Subnet\nCIDR: 10.10.1.0/24\nZone: us-east-1a\nName: app-public-subnet"]
+    InternetGateway["Internet Gateway\nName: app-igw"]
+    RouteTable["Route Table\nName: app-public-rt"]
+    RouteTableAssociation["Route Table Association\nSubnet: app-public-subnet\nRoute Table: app-public-rt"]
+    SecurityGroup["Security Group\nName: app-instance-sg\nDescription: Allow web access and SSH"]
+    S3Bucket["S3 Bucket\nName: my-unique-app-data-bucket-example-12345\nACL: private"]
+    IAMPolicy["IAM Policy\nName: S3ReadWritePolicyForAppInstance\nDescription: Allows EC2 instance to read and write objects in the app data bucket"]
+    IAMRole["IAM Role\nName: AppInstanceRole\nTrust: EC2 service"]
+    IAMRolePolicyAttachment["IAM Role Policy Attachment\nRole: AppInstanceRole\nPolicy: S3ReadWritePolicyForAppInstance"]
+    IAMInstanceProfile["IAM Instance Profile\nName: AppInstanceProfile\nRole: AppInstanceRole"]
+    EC2Instance["EC2 Instance\nAMI: ami-053b0d53c279c366f\nType: t2.micro\nName: app-web-server"]
+    OutputPublicIP["Output\nPublic IP of app web server"]
+    OutputBucketName["Output\nS3 data bucket name"]
+
+    AWSProvider --> VPC
+    VPC --> Subnet
+    VPC --> InternetGateway
+    VPC --> RouteTable
+    Subnet --> RouteTableAssociation
+    InternetGateway --> RouteTable
+    Subnet --> EC2Instance
+    SecurityGroup --> EC2Instance
+    IAMInstanceProfile --> EC2Instance
+    IAMRole --> IAMInstanceProfile
+    IAMPolicy --> IAMRolePolicyAttachment
+    IAMRolePolicyAttachment --> IAMRole
+    S3Bucket --> IAMPolicy
+    EC2Instance --> OutputPublicIP
+    S3Bucket --> OutputBucketName
+
+    classDef default fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef hover fill:#f0f0f0,stroke:#333,stroke-width:2px;
+    class AWSProvider,VPC,Subnet,InternetGateway,RouteTable,RouteTableAssociation,SecurityGroup,S3Bucket,IAMPolicy,IAMRole,IAMRolePolicyAttachment,IAMInstanceProfile,EC2Instance,OutputPublicIP,OutputBucketName hover;
