@@ -46,7 +46,7 @@ func GetClient() *supabase.Client {
 func Insert(table string, data interface{}) error {
 	fmt.Print("===============D", data)
 	_, _, err := Client.From(table).Insert(data, false, "", "", "").Execute()
-	fmt.Print("===============D", err)
+
 	return err
 }
 

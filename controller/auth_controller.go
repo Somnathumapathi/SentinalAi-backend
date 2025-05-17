@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"sentinal/db"
 	"sentinal/models"
@@ -30,18 +29,17 @@ func Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Print("===============")
+
 	// Register user with Supabase Auth
 	user, err := db.SignUp(c.Request.Context(), req.Email, req.Password, map[string]interface{}{
 		"name": req.Name,
 	})
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 		return
 	}
 
-	// Create user profile
+	// Create user profile using GORM
 	profile := models.User{
 		ID:        user.ID.String(),
 		Email:     req.Email,
@@ -50,9 +48,8 @@ func Register(c *gin.Context) {
 		UpdatedAt: time.Now(),
 	}
 
-	// Save user profile to database
-	err = db.Insert("users", profile)
-	if err != nil {
+	// Save user profile to database using GORM
+	if err := db.GetDB().Create(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user profile"})
 		return
 	}
@@ -99,10 +96,9 @@ func GetUser(c *gin.Context) {
 		return
 	}
 
-	// Get user profile
+	// Get user profile using GORM
 	var profile models.User
-	err = db.Select("users", &profile, "id", user.ID.String())
-	if err != nil {
+	if err := db.GetDB().Where("id = ?", user.ID.String()).First(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 		return
 	}

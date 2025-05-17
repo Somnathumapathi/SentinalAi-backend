@@ -29,8 +29,8 @@ func main() {
 	log.Printf("SUPABASE_KEY: %s", os.Getenv("SUPABASE_KEY"))
 	log.Printf("PORT: %s", os.Getenv("PORT"))
 
-	// Initialize database connection
-	if err := db.InitDB(); err != nil {
+	// Initialize database connection with GORM
+	if err := db.InitGORM(); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 

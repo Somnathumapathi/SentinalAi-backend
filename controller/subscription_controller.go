@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	razorpay "github.com/razorpay/razorpay-go"
+	"gorm.io/gorm"
 )
 
 // GetSubscription retrieves the subscription for an organization
@@ -21,9 +22,13 @@ func GetSubscription(c *gin.Context) {
 	}
 
 	var subscription models.Subscription
-	err := db.Select("subscriptions", &subscription, "organization_id", orgID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subscription"})
+	result := db.DB.Where("organization_id = ?", orgID).First(&subscription)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Subscription not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch subscription: %v", result.Error)})
 		return
 	}
 
@@ -44,21 +49,39 @@ func CreateSubscription(c *gin.Context) {
 		return
 	}
 
+	// Check if organization already has an active subscription
+	var existingSubscription models.Subscription
+	result := db.DB.Where("organization_id = ? AND status = ?", req.OrganizationID, "active").First(&existingSubscription)
+	if result.Error == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Organization already has an active subscription"})
+		return
+	} else if result.Error != gorm.ErrRecordNotFound {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to check existing subscription: %v", result.Error)})
+		return
+	}
+
+	// Create Razorpay subscription
+	razorpaySub, err := createRazorpaySubscription(req.Plan)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create Razorpay subscription: %v", err)})
+		return
+	}
+
 	// Create subscription
 	subscription := models.Subscription{
 		OrganizationID:         req.OrganizationID,
 		Plan:                   req.Plan,
 		Status:                 "pending",
-		RazorpaySubscriptionID: "", // Will be set after Razorpay subscription is created
+		RazorpaySubscriptionID: razorpaySub["id"].(string),
 		StartDate:              time.Now(),
 		EndDate:                time.Now().AddDate(1, 0, 0), // 1 year subscription
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
 	}
 
-	err := db.Insert("subscriptions", subscription)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create subscription"})
+	result = db.DB.Create(&subscription)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create subscription: %v", result.Error)})
 		return
 	}
 
@@ -79,15 +102,33 @@ func UpdateSubscription(c *gin.Context) {
 		return
 	}
 
-	update := map[string]interface{}{
-		"status":     req.Status,
-		"end_date":   req.EndDate,
-		"updated_at": time.Now(),
+	// Validate status
+	validStatuses := map[string]bool{
+		"active":    true,
+		"inactive":  true,
+		"suspended": true,
+		"cancelled": true,
+	}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
+		return
 	}
 
-	err := db.Update("subscriptions", update, "id", subscriptionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update subscription"})
+	result := db.DB.Model(&models.Subscription{}).
+		Where("id = ?", subscriptionID).
+		Updates(map[string]interface{}{
+			"status":     req.Status,
+			"end_date":   req.EndDate,
+			"updated_at": time.Now(),
+		})
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update subscription: %v", result.Error)})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Subscription not found"})
 		return
 	}
 
@@ -102,12 +143,20 @@ func CancelSubscription(c *gin.Context) {
 		return
 	}
 
-	err := db.Update("subscriptions", map[string]interface{}{
-		"status":     "cancelled",
-		"updated_at": time.Now(),
-	}, "id", subscriptionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel subscription"})
+	result := db.DB.Model(&models.Subscription{}).
+		Where("id = ?", subscriptionID).
+		Updates(map[string]interface{}{
+			"status":     "cancelled",
+			"updated_at": time.Now(),
+		})
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to cancel subscription: %v", result.Error)})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Subscription not found"})
 		return
 	}
 
@@ -115,9 +164,13 @@ func CancelSubscription(c *gin.Context) {
 }
 
 func createRazorpaySubscription(plan string) (map[string]interface{}, error) {
-	key_id := os.Getenv("KEY_ID")
-	key_secret := os.Getenv("KEY_SECRET")
-	client := razorpay.NewClient(key_id, key_secret)
+	keyID := os.Getenv("RAZORPAY_KEY_ID")
+	keySecret := os.Getenv("RAZORPAY_KEY_SECRET")
+	if keyID == "" || keySecret == "" {
+		return nil, fmt.Errorf("Razorpay credentials not configured")
+	}
+
+	client := razorpay.NewClient(keyID, keySecret)
 
 	// Define plan prices
 	planPrices := map[string]int64{
@@ -165,33 +218,36 @@ func createRazorpaySubscription(plan string) (map[string]interface{}, error) {
 // Helper function to check if an organization has reached its plan limits
 func CheckPlanLimits(orgID string) (bool, error) {
 	var subscription models.Subscription
-	err := db.Select("subscriptions", &subscription, "organization_id", orgID, "status", "active")
-	if err != nil {
-		return false, err
+	result := db.DB.Where("organization_id = ? AND status = ?", orgID, "active").First(&subscription)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return false, fmt.Errorf("no active subscription found")
+		}
+		return false, fmt.Errorf("failed to fetch subscription: %v", result.Error)
 	}
 
 	limits := models.PlanLimitsMap[subscription.Plan]
 
 	// Check GitHub repos limit
 	if limits.GitHubRepos != -1 {
-		var count int
-		err := db.Select("github_integrations", &count, "organization_id", orgID)
-		if err != nil {
-			return false, err
+		var count int64
+		result := db.DB.Model(&models.GitHubInstallation{}).Where("organization_id = ?", orgID).Count(&count)
+		if result.Error != nil {
+			return false, fmt.Errorf("failed to count GitHub installations: %v", result.Error)
 		}
-		if count >= limits.GitHubRepos {
+		if count >= int64(limits.GitHubRepos) {
 			return true, nil
 		}
 	}
 
 	// Check AWS accounts limit
 	if limits.AWSAccounts != -1 {
-		var count int
-		err := db.Select("aws_integrations", &count, "organization_id", orgID)
-		if err != nil {
-			return false, err
+		var count int64
+		result := db.DB.Model(&models.AWSIntegration{}).Where("organization_id = ?", orgID).Count(&count)
+		if result.Error != nil {
+			return false, fmt.Errorf("failed to count AWS integrations: %v", result.Error)
 		}
-		if count >= limits.AWSAccounts {
+		if count >= int64(limits.AWSAccounts) {
 			return true, nil
 		}
 	}
