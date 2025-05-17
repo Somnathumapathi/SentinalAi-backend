@@ -7,9 +7,14 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v53/github"
+	"github.com/joho/godotenv"
 )
 
 func GetGHClient(installationId int64, appID int64) (*github.Client, error) {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("No .env file found or failed to load")
+	}
 	keyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 	privateKey, err := os.ReadFile(keyPath)
 	if err != nil {

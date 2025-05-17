@@ -4,12 +4,17 @@ import (
 	"fmt"
 	// "fmt"
 	"net/http"
+	"os"
 	"sentinal/models"
 	githubsvc "sentinal/services/github"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	github "github.com/google/go-github/v53/github"
+
+	// "github.com/joho/godotenv"
+	"sentinal/db"
 )
 
 func TraceHandler(c *gin.Context) {
@@ -57,7 +62,7 @@ func processMisConfig(c *gin.Context, req models.TraceRequest) {
 }
 
 func getIaCFileContent(c *gin.Context) {
-	client, err := githubsvc.GetGHClient(int64(00000000), int64(00000000))
+	client, err := githubsvc.GetGHClient(int64(67171708), int64(1271564))
 	if err != nil {
 		fmt.Printf("Error getting GitHub client: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize GitHub client"})
@@ -149,4 +154,71 @@ func getDecodedFileContent(ctx *gin.Context, client *github.Client, owner, repo,
 	}
 
 	return decoded, nil
+}
+
+// GetGitHubAppInstallURL returns the URL for installing the GitHub App
+func GetGitHubAppInstallURL(c *gin.Context) {
+	appID := os.Getenv("GITHUB_APP_ID")
+	if appID == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GitHub App ID not configured"})
+		return
+	}
+
+	installURL := fmt.Sprintf("https://github.com/apps/%s/installations/new", appID)
+	c.JSON(http.StatusOK, gin.H{"install_url": installURL})
+}
+
+// GetGitHubInstallations retrieves all installations for a user's organizations
+func GetGitHubInstallations(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var installations []models.GitHubInstallation
+	err := db.Select("github_installations", &installations, "user_id", userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch installations"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"installations": installations})
+}
+
+// ConnectGitHubInstallation connects a GitHub installation to a user's organization
+func ConnectGitHubInstallation(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	installationID := c.Param("id")
+	if installationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Installation ID is required"})
+		return
+	}
+
+	// Get the installation from the database
+	var installation models.GitHubInstallation
+	err := db.Select("github_installations", &installation, "installation_id", installationID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Installation not found"})
+		return
+	}
+
+	// Update the installation with the user ID
+	update := map[string]interface{}{
+		"user_id":    userID,
+		"updated_at": time.Now(),
+	}
+
+	err = db.Update("github_installations", update, "installation_id", installationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Installation connected successfully"})
 }
