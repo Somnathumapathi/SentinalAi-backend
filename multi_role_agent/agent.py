@@ -10,9 +10,6 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool, tool
 from pydantic import BaseModel, Field
 from langchain_community.tools.ddg_search import DuckDuckGoSearchRun
-# from langchain_community.vectorstores import FAISS
-# from langchain_openai import OpenAIEmbeddings # Removed alternative
-# from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.tools.file_management import ReadFileTool, WriteFileTool
@@ -53,41 +50,6 @@ def get_retriever_tool(docs_path: Optional[str] = None, documents_content: Optio
     """
     Creates a retrieval tool from a directory of documents or list of document contents.
     """
-    sample_docs = [
-        Document(page_content="This is a sample document about cloud services.", metadata={"source": "sample_doc_1.txt"}),
-        Document(page_content="Another sample document detailing a common procedure.", metadata={"source": "sample_doc_2.txt"}),
-    ]
-
-    # loaded_documents = []
-    # if documents_content:
-    #     loaded_documents = [Document(page_content=content, metadata={"source": f"dynamic_doc_{i}"}) for i, content in enumerate(documents_content)]
-    # elif docs_path and os.path.exists(docs_path):
-    #     print(f"Attempting to load documents from {docs_path} (implementation required for robust loading).")
-    #     try:
-    #         for filename in os.listdir(docs_path):
-    #             if filename.endswith(".txt"):
-    #                 file_path = os.path.join(docs_path, filename)
-    #                 with open(file_path, 'r', encoding='utf-8') as f:
-    #                     loaded_documents.append(Document(page_content=f.read(), metadata={"source": filename}))
-    #         if not loaded_documents:
-    #             print(f"No .txt documents found in {docs_path}. Using sample documents.")
-    #             loaded_documents = sample_docs
-    #     except Exception as e:
-    #         print(f"Error loading documents from path {docs_path}: {e}. Using sample documents.")
-    #         loaded_documents = sample_docs
-    # else:
-    #     print("Using sample documents for retrieval as no path or content provided.")
-    #     loaded_documents = sample_docs
-
-    # if not loaded_documents:
-    #     @tool("document_retriever")
-    #     def dummy_retriever_tool(query: str) -> str:
-    #         """(No documents loaded) Retrieves relevant information from indexed documentation."""
-    #         return "No documents available for retrieval."
-    #     return dummy_retriever_tool
-
-    # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    # split_docs = text_splitter.split_documents(loaded_documents)
 
     embeddings = HuggingFaceEmbeddings(model_name="intfloat/e5-large-v2")
     try:
@@ -113,8 +75,6 @@ def get_retriever_tool(docs_path: Optional[str] = None, documents_content: Optio
 read_file_tool = ReadFileTool()
 write_file_tool = WriteFileTool(root_dir=".") # Restrict to current directory for safety
 search_tool = DuckDuckGoSearchRun()
-# execute_script_tool is already defined with @tool
-# get_retriever_tool is a function that returns a tool
 
 # --- Task Planning Agent Definition ---
 class Task(BaseModel):
@@ -199,8 +159,6 @@ class TaskPlannerAgent:
                         start_char_pos = start_bracket
                         end_char = ']'
                     
-                    # Find the matching closing character
-                    # This is a simplified approach; a robust parser would handle nested structures better
                     open_brackets = 0
                     end_char_pos = -1
                     for i in range(start_char_pos, len(content)):
@@ -326,11 +284,41 @@ class CloudAIAgent:
             print(f"Error during agent invocation: {e}")
             return {"output": f"An error occurred: {str(e)}"}
 
-# To use this core agent:
-if __name__ == "__main__":
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import requests
 
+app = FastAPI( title="Multi-Role AI Agent API", description="API for Multi-Role AI Agent", version="1.0")
+# CORS middleware to allow requests from any origin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class TerraformCode(BaseModel):
+    terraform_code: str
+
+@app.post("/process_terraform/")
+async def func():
+    tf = requests.post(r"https://gfpbz04l-8080.inc1.devtunnels.ms/")["terraform_code"]
+    # remove all prev .txt files
+    # tf = tf.terraform_code
+    for file in os.listdir("."):
+        if file.endswith(".txt") or file.endswith(".tf") :
+            os.remove(file)
+    with open("original_terraform.tf", "w") as f:
+        f.write(tf)
     # 1. Get initial user query for task planning
-    initial_user_query = input("Please enter your high-level goal for the AI assistant: ")
+    initial_user_query = tf+"""1. Generate a graph representing the Terraform resources and their permissions using mermaid.js code in a original_graph.txt.
+2. Analyze the original_terraform.tf code and the original_graph.txt together for security vulnerabilities. Create a detailed vulnerability report. You MUST use the 'write_file_tool' to save this report to 'report.txt' AND you MUST also output the full content of this report in a fixed format. It should be a JSON object with the list of vulnerabilities where each one of them should be a dictionary of keys-values: 'severity'(1,2 or 3. 1 being less severe and 3 being highly severe), 'vulnerabilities'(In markdown with a heading and what's the vulnerability), 'recommendations', 'resource name', 'resource type' and  'potential impact'.
+3. Using the original_terraform.tf code and the vulnerability report in report.txt content, create a new version of the Terraform code that remediates the identified vulnerabilities. Only modify the vulnerable parts; keep all other parts of the code identical. The output of this step MUST be the complete new remediated Terraform code in changed_terraform.tf file.
+4. Based on the newly created remediated Terraform code in changed_terraform.tf, generate a new graph representing the Terraform resources and their permissions using mermaid.js code in changed_graph.txt.
+
+Ensure each task is distinct and focuses on clear objective. The output of one task might be crucial for the next. For file operations, explicitly state the filename (e.g., 'report.txt').'"""#input("Please enter your high-level goal for the AI assistant: ")
     # Instantiate the Task Planner Agent
     task_planner = TaskPlannerAgent()
 
@@ -356,33 +344,11 @@ if __name__ == "__main__":
 
 
     agent_init_kwargs = {"documentation_path": r"E:\weird shit\Aventus\multi_role_agent\index"}
-    # Example for documentation_path:
-    # os.makedirs("my_docs_folder", exist_ok=True)
-    # with open("my_docs_folder/info.txt", "w") as f: f.write("This is info from a file.")
-    # agent_init_kwargs = {"documentation_path": "my_docs_folder"}
 
 
     # 3. Initialize loop-persistent context
     shared_memory_block = f"User role: Senior DevOps Engineer. Overall User Goal: {initial_user_query}"
     current_chat_history = []
-
-    # Cleanup previously created file for idempotency (example)
-    # This might need to be more dynamic if filenames are generated by the agent
-    # For now, let's remove a common potential output file if it exists.
-    example_output_filename = "y_troubleshooting_guide.txt" # or y_summary.txt from example query
-    if os.path.exists(example_output_filename):
-        try:
-            os.remove(example_output_filename)
-            print(f"Cleaned up existing file: {example_output_filename}")
-        except OSError as e:
-            print(f"Error removing existing file {example_output_filename}: {e}")
-    if os.path.exists("y_summary.txt"): # from example query
-        try:
-            os.remove("y_summary.txt")
-            print(f"Cleaned up existing file: y_summary.txt")
-        except OSError as e:
-            print(f"Error removing existing file y_summary.txt: {e}")
-
 
     print("\n--- Starting Multi-Step Agent Execution ---")
 
