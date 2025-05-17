@@ -4,3 +4,4 @@ private-key.pem
 __pycache__/
 *.pyc
 *.bin
+*.txt
