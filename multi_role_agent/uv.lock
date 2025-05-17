@@ -110,6 +110,7 @@ dependencies = [
     { name = "docling", version = "2.15.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "docling", version = "2.32.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "faiss-cpu" },
+    { name = "fastapi" },
     { name = "google-genai" },
     { name = "google-generativeai" },
     { name = "langchain" },
@@ -122,6 +123,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "python-hcl2" },
     { name = "sentence-transformers" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -129,6 +131,7 @@ requires-dist = [
     { name = "chromadb", specifier = ">=1.0.9" },
     { name = "docling", specifier = ">=2.15.1" },
     { name = "faiss-cpu", specifier = ">=1.11.0" },
+    { name = "fastapi", specifier = ">=0.115.9" },
     { name = "google-genai", specifier = ">=1.15.0" },
     { name = "google-generativeai", specifier = ">=0.8.5" },
     { name = "langchain", specifier = ">=0.3.25" },
@@ -141,6 +144,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=0.3.17" },
     { name = "python-hcl2", specifier = ">=7.2.1" },
     { name = "sentence-transformers", specifier = ">=4.1.0" },
+    { name = "uvicorn", specifier = ">=0.34.2" },
 ]
 
 [[package]]

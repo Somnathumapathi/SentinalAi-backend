@@ -8,6 +8,7 @@ dependencies = [
     "chromadb>=1.0.9",
     "docling>=2.15.1",
     "faiss-cpu>=1.11.0",
+    "fastapi>=0.115.9",
     "google-genai>=1.15.0",
     "google-generativeai>=0.8.5",
     "langchain>=0.3.25",
@@ -20,4 +21,5 @@ dependencies = [
     "langchain-openai>=0.3.17",
     "python-hcl2>=7.2.1",
     "sentence-transformers>=4.1.0",
+    "uvicorn>=0.34.2",
 ]

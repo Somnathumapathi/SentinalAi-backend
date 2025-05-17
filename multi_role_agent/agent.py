@@ -101,7 +101,7 @@ class TaskPlannerAgent:
                  "Each task should be actionable and contribute to the overall user goal. "
                  "You must respond with a list of tasks structured according to the 'TaskList' format. "
                  "Generate meaningful and unique 'id' for each task, for example 'task_1_analyze_logs', 'task_2_write_report' etc. "
-                 "The 'description' should be a clear instruction for another AI agent. "
+                 "The 'description' should be a clear instruction for another AI agent. If there are instructions common to all tasks, include them in all tasks as weell."
                  "Make sure you don't have unnecessary number of plans. Be very efficient and avoid too many unnecessary steps"
                  "Ensure the tasks are sequential and logical. Output ONLY the JSON structure."),
                 ("user", "User Query: {user_query}")
@@ -304,7 +304,9 @@ class TerraformCode(BaseModel):
 
 @app.post("/process_terraform/")
 async def func():
-    tf = requests.post(r"https://gfpbz04l-8080.inc1.devtunnels.ms/")["terraform_code"]
+    tf = requests.post(r"https://gfpbz04l-8080.inc1.devtunnels.ms/getiac/").json()["content"]
+    with open("logs.json","r") as f:
+        cloud_logs = json.load(f)
     # remove all prev .txt files
     # tf = tf.terraform_code
     for file in os.listdir("."):
@@ -313,12 +315,26 @@ async def func():
     with open("original_terraform.tf", "w") as f:
         f.write(tf)
     # 1. Get initial user query for task planning
-    initial_user_query = tf+"""1. Generate a graph representing the Terraform resources and their permissions using mermaid.js code in a original_graph.txt.
-2. Analyze the original_terraform.tf code and the original_graph.txt together for security vulnerabilities. Create a detailed vulnerability report. You MUST use the 'write_file_tool' to save this report to 'report.txt' AND you MUST also output the full content of this report in a fixed format. It should be a JSON object with the list of vulnerabilities where each one of them should be a dictionary of keys-values: 'severity'(1,2 or 3. 1 being less severe and 3 being highly severe), 'vulnerabilities'(In markdown with a heading and what's the vulnerability), 'recommendations', 'resource name', 'resource type' and  'potential impact'.
-3. Using the original_terraform.tf code and the vulnerability report in report.txt content, create a new version of the Terraform code that remediates the identified vulnerabilities. Only modify the vulnerable parts; keep all other parts of the code identical. The output of this step MUST be the complete new remediated Terraform code in changed_terraform.tf file.
+    initial_user_query = """\n\n1. Generate a graph representing the Terraform resources and their permissions using mermaid.js code in a original_graph.txt. The terraform code is present in original_terraform.tf
+2. Analyze the original_terraform.tf code and the original_graph.txt together for security vulnerabilities. Create a detailed vulnerability report. You MUST use the 'write_file_tool' to save this report to 'report.txt' AND you MUST also output the full content of this report in a fixed format. It should be a JSON object with the list of vulnerabilities where each one of them should be a dictionary of keys-values: 'severity'(1,2 or 3. 1 being less severe and 3 being highly severe), 'vulnerabilities'(In markdown with a heading and what's the vulnerability), 'recommendations', 'resource name', 'resource type' and  'potential impact'. the below is an example:
+[
+    {
+      "severity": 3,
+      "vulnerability": "# Security Group allowing SSH from anywhere\nAllowing SSH access from 0.0.0.0/0 is a critical security risk as it exposes the server to potential unauthorized access from any IP address.",
+      "recommendations": "Restrict SSH access to specific IP addresses or ranges that are trusted. Consider using a VPN or bastion host for secure access.",
+      "resource_name": "new_sg",
+      "resource_type": "aws_security_group",
+      "potential_impact": "Unauthorized access to EC2 instances leading to data breaches or system compromise."
+    },
+    {
+      ...
+    }
+]
+3. Using the original_terraform.tf code, the vulnerability report in report.txt and the cloud trail logs in logs.json's content together, create a new version of the Terraform code that remediates the identified vulnerabilities. Only modify the vulnerable parts; keep all other parts of the code identical. The output of this step MUST be the complete new remediated Terraform code in changed_terraform.tf file.
 4. Based on the newly created remediated Terraform code in changed_terraform.tf, generate a new graph representing the Terraform resources and their permissions using mermaid.js code in changed_graph.txt.
 
-Ensure each task is distinct and focuses on clear objective. The output of one task might be crucial for the next. For file operations, explicitly state the filename (e.g., 'report.txt').'"""#input("Please enter your high-level goal for the AI assistant: ")
+Ensure each task is distinct and focuses on clear objective. The output of one task might be crucial for the next.
+NEVER EVER HALLUCINATE OR GIVE OUT ANY WRONG ANSWERS. UTILIZE ALL TOOLS WHEN NECESSARY."""#input("Please enter your high-level goal for the AI assistant: ")
     # Instantiate the Task Planner Agent
     task_planner = TaskPlannerAgent()
 
@@ -383,3 +399,22 @@ Ensure each task is distinct and focuses on clear objective. The output of one t
         current_chat_history.append({"role": "ai", "content": agent_output})
 
     print("\n--- All tasks processed ---")
+    
+    # open report.txt, original_graph.txt, changed_graph.txt, changed_terraform.tf
+
+    with open("report.txt", "r") as f:
+        report = f.read()
+    with open("original_graph.txt", "r") as f:
+        original_graph = f.read()
+    with open("changed_graph.txt", "r") as f:
+        changed_graph = f.read()
+    with open("changed_terraform.tf", "r") as f:
+        changed_terraform = f.read()
+
+    return JSONResponse(content={
+        "report": report,
+        "original_graph": original_graph,
+        "changed_graph": changed_graph,
+        "changed_terraform": changed_terraform,
+        "original_graph": tf,
+    })
