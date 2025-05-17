@@ -416,5 +416,5 @@ NEVER EVER HALLUCINATE OR GIVE OUT ANY WRONG ANSWERS. UTILIZE ALL TOOLS WHEN NEC
         "original_graph": original_graph,
         "changed_graph": changed_graph,
         "changed_terraform": changed_terraform,
-        "original_graph": tf,
+        "original_terraform": tf,
     })
