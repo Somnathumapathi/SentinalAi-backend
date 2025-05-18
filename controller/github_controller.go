@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	// "fmt"
 	"net/http"
@@ -68,11 +69,27 @@ func processMisConfig(c *gin.Context, req models.TraceRequest) {
 }
 
 func getIaCFileContent(c *gin.Context) {
+
 	client, err := githubsvc.GetGHClient(int64(67221597), int64(1271564)) // Use actual installation/account IDs
 	if err != nil || client == nil {
 		fmt.Printf("Error getting GitHub client: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize GitHub client"})
 		return
+	}
+	prs, err := getPrs(c)
+	if err != nil {
+		prs = make(map[int][]string)
+	}
+
+	// Get logs from external URL, suppress error if any
+	logs := ""
+	resp, err := http.Get("https://119f-2409-40f2-1023-9d6a-efb3-b133-9213-3696.ngrok-free.app/event")
+	if err == nil && resp != nil {
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			logs = string(body)
+		}
 	}
 
 	tfFiles := collectIaCFiles(c, client, "rishichirchi", "IaC", "", []string{".tf"})
@@ -82,6 +99,8 @@ func getIaCFileContent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"path":    path,
 			"content": content,
+			"prs":     prs,
+			"logs":    logs,
 		})
 		return
 	}
@@ -143,6 +162,39 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+func getPrs(c *gin.Context) (result map[int][]string, err error) {
+	fmt.Println("Reached")
+	client, _ := githubsvc.GetGHClient(int64(67221597), int64(1271564))
+	fmt.Println("Client:", client)
+
+	owner := "rishichirchi"
+	repo := "IaC"
+
+	// List all open pull requests
+	prs, _, err := client.PullRequests.List(c, owner, repo, &github.PullRequestListOptions{State: "open"})
+	if err != nil {
+		fmt.Println("Error listing pull requests:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result = make(map[int][]string) // PR number -> list of .tf files
+
+	for _, pr := range prs {
+		files, _, err := client.PullRequests.ListFiles(c, owner, repo, pr.GetNumber(), nil)
+		if err != nil {
+			fmt.Printf("Error listing files for PR #%d: %v\n", pr.GetNumber(), err)
+			continue
+		}
+		for _, file := range files {
+			if strings.HasSuffix(file.GetFilename(), ".tf") {
+				result[pr.GetNumber()] = append(result[pr.GetNumber()], file.GetFilename())
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func getDecodedFileContent(ctx *gin.Context, client *github.Client, owner, repo, filePath string) (string, error) {
