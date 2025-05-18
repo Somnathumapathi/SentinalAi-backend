@@ -7,9 +7,10 @@ require github.com/gin-gonic/gin v1.10.0
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v1.0.0 // indirect
+	github.com/google/go-github/v29 v29.0.2 // indirect
 	github.com/google/go-github/v71 v71.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -41,6 +42,7 @@ require (
 )
 
 require (
+	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.15.0
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
@@ -54,6 +56,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/google/go-github/v50 v50.2.0
 	github.com/google/go-github/v53 v53.2.0
+	github.com/joho/godotenv v1.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect

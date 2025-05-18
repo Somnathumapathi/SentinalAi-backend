@@ -6,8 +6,6 @@ import (
 	"os"
 	"sentinal/controller"
 	"sentinal/db"
-	"sentinal/middleware"
-	"sentinal/webhooks"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -43,41 +41,10 @@ func main() {
 			"message": "pong",
 		})
 	})
+	r.POST("/trace", controller.TraceHandler)
+	r.POST("/webhook/github", controller.GitHubIWebhook)
+	r.POST("/getiac", controller.GetIacContent)
+	r.POST("/createpr", controller.CreatePRHandler)
 
-	// Auth routes
-	auth := r.Group("/auth")
-	{
-		auth.POST("/register", controller.Register)
-		auth.POST("/login", controller.Login)
-		auth.POST("/logout", controller.SignOut)
-		auth.GET("/user", controller.GetUser)
-	}
-
-	// Protected routes
-	protected := r.Group("/")
-	protected.Use(middleware.AuthMiddleware())
-	{
-		// GitHub integration routes
-		protected.GET("/github/app/install-url", controller.GetGitHubAppInstallURL)
-		protected.GET("/github/installations", controller.GetGitHubInstallations)
-		protected.POST("/github/installations/:id/connect", controller.ConnectGitHubInstallation)
-
-		// Subscription routes
-		protected.GET("/subscriptions/:org_id", controller.GetSubscription)
-		protected.POST("/subscriptions", controller.CreateSubscription)
-		protected.PUT("/subscriptions/:id", controller.UpdateSubscription)
-		protected.DELETE("/subscriptions/:id", controller.CancelSubscription)
-	}
-
-	// GitHub webhook endpoint
-	r.POST("/webhook/github", webhooks.GitHubWebhook)
-
-	// Start the server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	r.Run(":8080")
 }

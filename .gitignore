@@ -1,7 +1,2 @@
 private-key.pem
 .env
-.venv
-__pycache__/
-*.pyc
-*.bin
-*.txt
